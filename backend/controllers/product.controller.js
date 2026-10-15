@@ -41,7 +41,7 @@ export const createProduct = async (req, res) => {
 // @query   search, category, sort
 export const getProducts = async (req, res) => {
   try {
-    const { search, category, sort } = req.query;
+    const { search, category, sort, minPrice, maxPrice, inStock } = req.query;
 
     const query = {};
 
@@ -54,6 +54,18 @@ export const getProducts = async (req, res) => {
     if (search && search.trim() !== "") {
       const searchRegex = new RegExp(search.trim(), "i");
       query.$or = [{ name: searchRegex }, { description: searchRegex }];
+    }
+
+    // Price range filters
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = Number(minPrice);
+      if (maxPrice) query.price.$lte = Number(maxPrice);
+    }
+
+    // In-stock filter
+    if (inStock === "true" || inStock === true) {
+      query.stock = { $gt: 0 };
     }
 
     let queryBuilder = Product.find(query);
