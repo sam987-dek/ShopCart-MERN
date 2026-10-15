@@ -111,8 +111,11 @@ export const getProfile = async (req, res) => {
 
 export const logoutCustomer = async (req, res) => {
   try {
+    const isProduction = process.env.NODE_ENV === "production";
     res.cookie("token", "", {
       httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
       expires: new Date(0), 
     });
 
