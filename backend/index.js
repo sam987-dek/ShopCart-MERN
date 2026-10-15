@@ -46,23 +46,6 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Routes (direct and /api prefixed for Vercel Services routing)
-app.use("/customers", customerRoutes);
-app.use("/products", productRoutes);
-app.use("/wishlist", wishlistRoutes);
-app.use("/cart", cartRoutes);
-app.use("/orders", orderRoutes);
-
-app.use("/api/customers", customerRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/wishlist", wishlistRoutes);
-app.use("/api/cart", cartRoutes);
-app.use("/api/orders", orderRoutes);
-
-app.get(["/", "/api"], (req, res) => {
-  res.json({ message: "ShopKart API is running" });
-});
-
 const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 
@@ -80,7 +63,10 @@ export const connectDB = async () => {
   console.log("✅ Connected to MongoDB");
 };
 
-// Ensure DB is connected on incoming requests (serverless friendly)
+// Immediate background connection attempt
+connectDB().catch((err) => console.error("Initial connectDB attempt:", err.message));
+
+// Ensure DB is connected on incoming requests BEFORE route handlers run
 app.use(async (req, res, next) => {
   try {
     await connectDB();
@@ -95,21 +81,38 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.get("/api/db-status", async (req, res) => {
+app.get(["/db-status", "/api/db-status"], async (req, res) => {
   try {
     await connectDB();
     res.json({
       status: "connected",
       readyState: mongoose.connection.readyState,
-      hasMongoUri: Boolean(process.env.MONGO_URI),
+      hasMongoUri: Boolean(process.env.MONGO_URI || MONGO_URI),
     });
   } catch (err) {
     res.status(500).json({
       status: "error",
       message: err.message,
-      hasMongoUri: Boolean(process.env.MONGO_URI),
+      hasMongoUri: Boolean(process.env.MONGO_URI || MONGO_URI),
     });
   }
+});
+
+// Routes (direct and /api prefixed for Vercel Services routing)
+app.use("/customers", customerRoutes);
+app.use("/products", productRoutes);
+app.use("/wishlist", wishlistRoutes);
+app.use("/cart", cartRoutes);
+app.use("/orders", orderRoutes);
+
+app.use("/api/customers", customerRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/wishlist", wishlistRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
+
+app.get(["/", "/api"], (req, res) => {
+  res.json({ message: "ShopKart API is running" });
 });
 
 // For persistent servers (local dev, Render, Railway), listen on PORT
