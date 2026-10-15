@@ -79,6 +79,7 @@ export const getProducts = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Server error while fetching products",
+      error: error.message,
     });
   }
 };

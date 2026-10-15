@@ -68,20 +68,48 @@ const MONGO_URI = process.env.MONGO_URI;
 
 let isConnected = false;
 export const connectDB = async () => {
-  if (isConnected || mongoose.connection.readyState >= 1) return;
-  try {
-    await mongoose.connect(MONGO_URI);
-    isConnected = true;
-    console.log("✅ Connected to MongoDB");
-  } catch (err) {
-    console.error("❌ MongoDB connection failed:", err.message);
+  if (mongoose.connection.readyState >= 1) return;
+  const uri = process.env.MONGO_URI || MONGO_URI;
+  if (!uri) {
+    throw new Error("MONGO_URI environment variable is not defined");
   }
+  await mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 5000,
+  });
+  isConnected = true;
+  console.log("✅ Connected to MongoDB");
 };
 
 // Ensure DB is connected on incoming requests (serverless friendly)
 app.use(async (req, res, next) => {
-  await connectDB();
-  next();
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err.message);
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+      error: err.message,
+    });
+  }
+});
+
+app.get("/api/db-status", async (req, res) => {
+  try {
+    await connectDB();
+    res.json({
+      status: "connected",
+      readyState: mongoose.connection.readyState,
+      hasMongoUri: Boolean(process.env.MONGO_URI),
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: "error",
+      message: err.message,
+      hasMongoUri: Boolean(process.env.MONGO_URI),
+    });
+  }
 });
 
 // For persistent servers (local dev, Render, Railway), listen on PORT
